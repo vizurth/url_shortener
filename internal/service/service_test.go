@@ -13,7 +13,33 @@ import (
 	"github.com/vizurth/url_shortener/mocks"
 )
 
-func anyCode() interface{} {
+func TestService_ShortenURL_RetriesOnShortCodeConflict(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	mockStorage := mocks.NewMockStorage(t)
+	svc := New(mockStorage)
+
+	originalURL := "https://example.com/retry"
+	returnedCode := "abc1234567"
+
+	mockStorage.EXPECT().
+		Save(ctx, originalURL, anyCode()).
+		Return("", false, storage.ErrShortCodeConflict).
+		Once()
+
+	mockStorage.EXPECT().
+		Save(ctx, originalURL, anyCode()).
+		Return(returnedCode, true, nil).
+		Once()
+
+	gotCode, isNew, err := svc.ShortenURL(ctx, originalURL)
+	assert.NoError(t, err)
+	assert.True(t, isNew)
+	assert.Equal(t, returnedCode, gotCode)
+}
+
+func anyCode() any {
 	return mock.MatchedBy(func(s string) bool {
 		if len(s) != shortCodeLength {
 			return false
@@ -45,6 +71,16 @@ func TestService_ShortenURL_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.True(t, isNew)
 	assert.Equal(t, returnedCode, gotCode)
+}
+
+func TestService_ShortenURL_InvalidURL(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	svc := New(mocks.NewMockStorage(t))
+
+	_, _, err := svc.ShortenURL(ctx, "not a url")
+	assert.ErrorIs(t, err, ErrInvalidURL)
 }
 
 func TestService_ShortenURL_SaveError(t *testing.T) {
@@ -94,14 +130,26 @@ func TestService_Resolve_NotFound(t *testing.T) {
 	mockStorage := mocks.NewMockStorage(t)
 	svc := New(mockStorage)
 
+	// storage возвращает ErrNotFound — сервис должен транслировать в service.ErrNotFound
 	mockStorage.EXPECT().
-		Resolve(ctx, "missing001x").
+		Resolve(ctx, "abc123XYZ0").
 		Return("", storage.ErrNotFound)
 
-	gotURL, err := svc.Resolve(ctx, "missing001x")
+	gotURL, err := svc.Resolve(ctx, "abc123XYZ0")
 	assert.Error(t, err)
-	assert.ErrorIs(t, err, storage.ErrNotFound)
+	assert.ErrorIs(t, err, ErrNotFound)
 	assert.Empty(t, gotURL)
+}
+
+func TestService_Resolve_InvalidCodeLength(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	svc := New(mocks.NewMockStorage(t))
+
+	// 11 символов — валидация отклонит до вызова storage
+	_, err := svc.Resolve(ctx, "toolongcode1")
+	assert.ErrorIs(t, err, ErrNotFound)
 }
 
 func TestGenerateShortCode_LengthAndCharset(t *testing.T) {

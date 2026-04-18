@@ -11,7 +11,10 @@ import (
 	"github.com/vizurth/url_shortener/internal/storage"
 )
 
-var ErrInvalidURL = errors.New("invalid URL")
+var (
+	ErrInvalidURL = errors.New("invalid URL")
+	ErrNotFound   = errors.New("short code not found")
+)
 
 const (
 	charset         = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
@@ -27,9 +30,9 @@ type Service struct {
 	storage storage.Storage
 }
 
-func New(storage storage.Storage) *Service {
+func New(store storage.Storage) *Service {
 	return &Service{
-		storage: storage,
+		storage: store,
 	}
 }
 
@@ -39,22 +42,27 @@ func (s *Service) ShortenURL(ctx context.Context, originalURL string) (shortCode
 		return "", false, err
 	}
 
-	code, err := generateShortCode()
-	if err != nil {
-		return "", false, fmt.Errorf("generate code: %w", err)
-	}
+	for {
+		code, err := generateShortCode()
+		if err != nil {
+			return "", false, fmt.Errorf("generate code: %w", err)
+		}
 
-	code, isNew, err = s.storage.Save(ctx, normalized, code)
-	if err != nil {
-		return "", false, fmt.Errorf("save url: %w", err)
+		code, isNew, err = s.storage.Save(ctx, normalized, code)
+		if err != nil {
+			if errors.Is(err, storage.ErrShortCodeConflict) {
+				continue
+			}
+			return "", false, fmt.Errorf("save url: %w", err)
+		}
+		return code, isNew, nil
 	}
-	return code, isNew, nil
 }
 
 func normalizeURL(raw string) (string, error) {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil {
-		return "", fmt.Errorf("%w: %s", ErrInvalidURL, err)
+		return "", fmt.Errorf("%w: %w", ErrInvalidURL, err)
 	}
 
 	if u.Scheme != "http" && u.Scheme != "https" {
@@ -65,15 +73,25 @@ func normalizeURL(raw string) (string, error) {
 		return "", fmt.Errorf("%w: %q is not a valid URL, example: https://example.com/path", ErrInvalidURL, raw)
 	}
 
+	// Hostname() обрезает дефолтный порт — https://example.com:443 → https://example.com
 	u.Host = u.Hostname()
 	u.Fragment = ""
+	if u.Path == "/" {
+		u.Path = ""
+	}
 	return u.String(), nil
 }
 
 func (s *Service) Resolve(ctx context.Context, shortCode string) (originalURL string, err error) {
+	if len(shortCode) != shortCodeLength {
+		return "", fmt.Errorf("%w: short code must be %d characters long", ErrNotFound, shortCodeLength)
+	}
 	originalURL, err = s.storage.Resolve(ctx, shortCode)
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve short code: %w", err)
+		if errors.Is(err, storage.ErrNotFound) {
+			return "", ErrNotFound
+		}
+		return "", fmt.Errorf("resolve: %w", err)
 	}
 	return originalURL, nil
 }
