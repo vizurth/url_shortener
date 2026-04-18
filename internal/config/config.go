@@ -5,8 +5,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/ilyakaznacheev/cleanenv"
+	"github.com/vizurth/url_shortener/pkg/postgres"
 )
 
 type Duration struct {
