@@ -7,7 +7,6 @@ import (
 	"net/url"
 
 	"github.com/vizurth/url_shortener/internal/service"
-	"github.com/vizurth/url_shortener/internal/storage"
 	"github.com/vizurth/url_shortener/pkg/logger"
 	"go.uber.org/zap"
 )
@@ -82,7 +81,7 @@ func (h *Handler) Resolve(w http.ResponseWriter, r *http.Request) {
 
 	originalURL, err := h.svc.Resolve(r.Context(), code)
 	if err != nil {
-		if errors.Is(err, storage.ErrNotFound) {
+		if errors.Is(err, service.ErrNotFound) {
 			http.Error(w, "not found", http.StatusNotFound)
 			return
 		}
