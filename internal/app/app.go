@@ -17,18 +17,17 @@ import (
 	pgstore "github.com/vizurth/url_shortener/internal/storage/postgres"
 	"github.com/vizurth/url_shortener/internal/transport"
 	"github.com/vizurth/url_shortener/pkg/logger"
-	psg "github.com/vizurth/url_shortener/pkg/postgres"
 	"go.uber.org/zap"
 )
 
 type App struct {
-	cfg     config.Config
 	log     *logger.Logger
 	storage storage.Storage
 	server  *http.Server
+	cfg     *config.Config
 }
 
-func New(ctx context.Context, cfg config.Config) (*App, error) {
+func New(ctx context.Context, cfg *config.Config) (*App, error) {
 	log := logger.From(ctx)
 
 	var (
@@ -38,15 +37,7 @@ func New(ctx context.Context, cfg config.Config) (*App, error) {
 
 	switch cfg.Storage.Type {
 	case "postgres":
-		store, err = pgstore.NewPostgresStorage(ctx, psg.Config{
-			Host:     cfg.Postgres.Host,
-			Port:     cfg.Postgres.Port,
-			Username: cfg.Postgres.Username,
-			Password: cfg.Postgres.Password,
-			Database: cfg.Postgres.Database,
-			MaxConns: cfg.Postgres.MaxConns,
-			MinConns: cfg.Postgres.MinConns,
-		})
+		store, err = pgstore.NewPostgresStorage(ctx, &cfg.Postgres)
 		if err != nil {
 			return nil, fmt.Errorf("init postgres storage: %w", err)
 		}
