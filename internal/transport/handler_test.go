@@ -14,11 +14,13 @@ import (
 	"github.com/vizurth/url_shortener/internal/service"
 	"github.com/vizurth/url_shortener/internal/transport"
 	"github.com/vizurth/url_shortener/mocks"
+	"github.com/vizurth/url_shortener/pkg/logger"
 )
 
 func newTestRouter(svc service.URLService) http.Handler {
 	h := transport.NewHandler(svc, "http://localhost:8080")
-	return transport.NewRouter(h)
+	log, _ := logger.New()
+	return transport.NewRouter(h, log)
 }
 
 func anyCtx() any {

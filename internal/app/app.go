@@ -49,7 +49,7 @@ func New(ctx context.Context, cfg *config.Config) (*App, error) {
 
 	svc := service.New(store)
 	handler := transport.NewHandler(svc, cfg.Query.ShortURLBase)
-	router := transport.NewRouter(handler)
+	router := transport.NewRouter(handler, log)
 
 	srv := &http.Server{
 		Addr:         cfg.Query.HTTPAddr,

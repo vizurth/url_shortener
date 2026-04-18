@@ -19,13 +19,13 @@ func (rw *responseWriter) WriteHeader(code int) {
 	rw.ResponseWriter.WriteHeader(code)
 }
 
-func LoggingMiddleware(next http.Handler) http.Handler {
+func LoggingMiddleware(log *logger.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestID := uuid.New().String()
-		ctx := logger.WithRequestID(r.Context(), requestID)
+		ctx := logger.With(r.Context(), log)
+		ctx = logger.WithRequestID(ctx, requestID)
 		r = r.WithContext(ctx)
 
-		log := logger.From(ctx)
 		start := time.Now()
 
 		rw := &responseWriter{ResponseWriter: w, status: http.StatusOK}
