@@ -53,6 +53,8 @@ func Migrate(ctx context.Context, cfg Config) error {
 		"./migrations",
 		"../migrations",
 		"../../migrations",
+		"../../../migrations",
+		"../../../../migrations",
 	}
 
 	var migrationPath string
