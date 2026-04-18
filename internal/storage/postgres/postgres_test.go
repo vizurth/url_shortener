@@ -9,36 +9,30 @@ import (
 	psg "github.com/vizurth/url_shortener/pkg/postgres"
 )
 
+var testCfg = psg.Config{
+	Host:     "localhost",
+	Port:     "5432",
+	Username: "short",
+	Password: "short",
+	Database: "short",
+	MaxConns: 10,
+	MinConns: 2,
+}
+
 func TestNewPostgresStorage(t *testing.T) {
 	log, err := logger.New()
-	if err != nil {
-		t.Fatalf("failed to create logger: %v", err)
-	}
+	require.NoError(t, err)
 	ctx := logger.With(context.Background(), log)
 
-	cfg := psg.Config{
-		Host:     "localhost",
-		Port:     "5432",
-		Username: "short",
-		Password: "short",
-		Database: "short",
-		MaxConns: 10,
-		MinConns: 2,
-	}
-
-	storage, err := NewPostgresStorage(ctx, cfg)
+	storage, err := NewPostgresStorage(ctx, testCfg)
 	require.NoError(t, err)
 	require.NotNil(t, storage)
-
-	err = storage.Close()
-	require.NoError(t, err)
+	require.NoError(t, storage.Close())
 }
 
 func TestSave(t *testing.T) {
 	log, err := logger.New()
-	if err != nil {
-		t.Fatalf("failed to create logger: %v", err)
-	}
+	require.NoError(t, err)
 	ctx := logger.With(context.Background(), log)
 	storage := setupTestStorage(t, ctx)
 	defer storage.Close()
@@ -78,9 +72,7 @@ func TestSave(t *testing.T) {
 
 func TestResolve(t *testing.T) {
 	log, err := logger.New()
-	if err != nil {
-		t.Fatalf("failed to create logger: %v", err)
-	}
+	require.NoError(t, err)
 	ctx := logger.With(context.Background(), log)
 	storage := setupTestStorage(t, ctx)
 	defer storage.Close()
@@ -98,9 +90,7 @@ func TestResolve(t *testing.T) {
 
 func TestResolveNotFound(t *testing.T) {
 	log, err := logger.New()
-	if err != nil {
-		t.Fatalf("failed to create logger: %v", err)
-	}
+	require.NoError(t, err)
 	ctx := logger.With(context.Background(), log)
 	storage := setupTestStorage(t, ctx)
 	defer storage.Close()
@@ -110,18 +100,7 @@ func TestResolveNotFound(t *testing.T) {
 }
 
 func setupTestStorage(t *testing.T, ctx context.Context) *PostgresStorage {
-	cfg := psg.Config{
-		Host:     "localhost",
-		Port:     "5432",
-		Username: "short",
-		Password: "short",
-		Database: "short",
-		MaxConns: 10,
-		MinConns: 2,
-	}
-
-	storage, err := NewPostgresStorage(ctx, cfg)
+	storage, err := NewPostgresStorage(ctx, testCfg)
 	require.NoError(t, err)
-
 	return storage
 }
