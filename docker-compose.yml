@@ -23,6 +23,25 @@ services:
     networks:
       - shortener
 
+  shortener:
+    build: .
+    container_name: shortener
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      STORAGE_TYPE: postgres
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_USERNAME: short
+      POSTGRES_PASSWORD: short
+      POSTGRES_DATABASE: short
+      QUERY_SHORT_URL_BASE: "http://localhost:8080"
+    ports:
+      - "8080:8080"
+    networks:
+      - shortener
+
 networks:
   shortener:
     driver: bridge
