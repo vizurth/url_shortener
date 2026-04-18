@@ -16,16 +16,16 @@ import (
 )
 
 type Config struct {
-	Host     string `yaml:"host"`
-	Port     string `yaml:"port"`
-	Username string `yaml:"username"`
-	Password string `yaml:"password"`
-	Database string `yaml:"database"`
-	MaxConns int32  `yaml:"max_conns" env:"MAX_CONNS" env-default:"10"`
-	MinConns int32  `yaml:"min_conns" env:"MIN_CONNS" env-default:"5"`
+	Host     string `yaml:"host"     env:"POSTGRES_HOST"     env-default:"localhost"`
+	Port     string `yaml:"port"     env:"POSTGRES_PORT"     env-default:"5432"`
+	Username string `yaml:"username" env:"POSTGRES_USERNAME" env-default:"postgres"`
+	Password string `yaml:"password" env:"POSTGRES_PASSWORD" env-default:"postgres"`
+	Database string `yaml:"database" env:"POSTGRES_DATABASE" env-default:"postgres"`
+	MaxConns int32  `yaml:"max_conns" env:"POSTGRES_MAX_CONNS" env-default:"10"`
+	MinConns int32  `yaml:"min_conns" env:"POSTGRES_MIN_CONNS" env-default:"5"`
 }
 
-func New(ctx context.Context, cfg Config) (*pgxpool.Pool, error) {
+func New(ctx context.Context, cfg *Config) (*pgxpool.Pool, error) {
 	poolCfg, err := pgxpool.ParseConfig(cfg.GetConnString())
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse postgres config: %w", err)
@@ -44,7 +44,7 @@ func New(ctx context.Context, cfg Config) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-func Migrate(ctx context.Context, cfg Config) error {
+func Migrate(ctx context.Context, cfg *Config) error {
 	connString := cfg.GetConnString()
 	log := logger.From(ctx)
 
@@ -70,13 +70,14 @@ func Migrate(ctx context.Context, cfg Config) error {
 	}
 
 	m, err := migrate.New("file://"+migrationPath, connString)
-
 	if err != nil {
 		return fmt.Errorf("failed to create migration instance: %w", err)
 	}
+	defer func() {
+		_, _ = m.Close()
+	}()
 
-	err = m.Up()
-	if err != nil && !errors.Is(err, migrate.ErrNoChange) {
+	if err = m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
 		return fmt.Errorf("failed to run migrations: %w", err)
 	}
 
@@ -85,12 +86,7 @@ func Migrate(ctx context.Context, cfg Config) error {
 }
 
 func (c *Config) GetConnString() string {
-	connString := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
-		c.Username,
-		c.Password,
-		c.Host,
-		c.Port,
-		c.Database,
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
+		c.Username, c.Password, c.Host, c.Port, c.Database,
 	)
-	return connString
 }
