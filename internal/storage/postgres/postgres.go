@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vizurth/url_shortener/internal/storage"
 	"github.com/vizurth/url_shortener/pkg/logger"
@@ -16,7 +17,7 @@ type PostgresStorage struct {
 	pool *pgxpool.Pool
 }
 
-func NewPostgresStorage(ctx context.Context, cfg psg.Config) (*PostgresStorage, error) {
+func NewPostgresStorage(ctx context.Context, cfg *psg.Config) (*PostgresStorage, error) {
 	log := logger.From(ctx)
 
 	if err := psg.Migrate(ctx, cfg); err != nil {
@@ -36,13 +37,7 @@ func NewPostgresStorage(ctx context.Context, cfg psg.Config) (*PostgresStorage, 
 	return &PostgresStorage{pool: pool}, nil
 }
 
-func (s *PostgresStorage) Save(ctx context.Context, originalURL, shortCode string) (string, bool, error) {
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return "", false, fmt.Errorf("could not begin transaction: %w", err)
-	}
-	defer tx.Rollback(ctx)
-
+func (s *PostgresStorage) Save(ctx context.Context, originalURL, shortCode string) (code string, isNew bool, err error) {
 	query := `
 		INSERT INTO urls (short_code, original_url)
 		VALUES ($1, $2)
@@ -52,17 +47,15 @@ func (s *PostgresStorage) Save(ctx context.Context, originalURL, shortCode strin
 	`
 
 	var returnedCode string
-	err = tx.QueryRow(ctx, query, shortCode, originalURL).Scan(&returnedCode)
-	if err != nil {
+	if err = s.pool.QueryRow(ctx, query, shortCode, originalURL).Scan(&returnedCode); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "urls_pkey" {
+			return "", false, storage.ErrShortCodeConflict
+		}
 		return "", false, fmt.Errorf("could not execute query: %w", err)
 	}
 
-	if err = tx.Commit(ctx); err != nil {
-		return "", false, fmt.Errorf("could not commit transaction: %w", err)
-	}
-
-	isNew := returnedCode == shortCode
-	return returnedCode, isNew, nil
+	return returnedCode, returnedCode == shortCode, nil
 }
 
 func (s *PostgresStorage) Resolve(ctx context.Context, shortCode string) (string, error) {

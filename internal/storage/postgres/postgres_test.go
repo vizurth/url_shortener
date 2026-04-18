@@ -5,11 +5,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/vizurth/url_shortener/internal/storage"
 	"github.com/vizurth/url_shortener/pkg/logger"
 	psg "github.com/vizurth/url_shortener/pkg/postgres"
 )
 
-var testCfg = psg.Config{
+var testCfg = &psg.Config{
 	Host:     "localhost",
 	Port:     "5432",
 	Username: "short",
@@ -24,18 +25,17 @@ func TestNewPostgresStorage(t *testing.T) {
 	require.NoError(t, err)
 	ctx := logger.With(context.Background(), log)
 
-	storage, err := NewPostgresStorage(ctx, testCfg)
+	s, err := NewPostgresStorage(ctx, testCfg)
 	require.NoError(t, err)
-	require.NotNil(t, storage)
-	require.NoError(t, storage.Close())
+	require.NotNil(t, s)
+	require.NoError(t, s.Close())
 }
 
 func TestSave(t *testing.T) {
 	log, err := logger.New()
 	require.NoError(t, err)
 	ctx := logger.With(context.Background(), log)
-	storage := setupTestStorage(t, ctx)
-	defer storage.Close()
+	s := setupTestStorage(t, ctx)
 
 	tests := []struct {
 		name        string
@@ -50,7 +50,7 @@ func TestSave(t *testing.T) {
 			expectNew:   true,
 		},
 		{
-			name:        "save existing url",
+			name:        "save existing url returns existing code",
 			originalURL: "https://example.com",
 			shortCode:   "xyz7891234",
 			expectNew:   false,
@@ -59,10 +59,9 @@ func TestSave(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			returnedCode, isNew, err := storage.Save(ctx, tt.originalURL, tt.shortCode)
+			returnedCode, isNew, err := s.Save(ctx, tt.originalURL, tt.shortCode)
 			require.NoError(t, err)
 			require.Equal(t, tt.expectNew, isNew)
-
 			if tt.expectNew {
 				require.Equal(t, tt.shortCode, returnedCode)
 			}
@@ -74,16 +73,15 @@ func TestResolve(t *testing.T) {
 	log, err := logger.New()
 	require.NoError(t, err)
 	ctx := logger.With(context.Background(), log)
-	storage := setupTestStorage(t, ctx)
-	defer storage.Close()
+	s := setupTestStorage(t, ctx)
 
 	originalURL := "https://example.com/test"
 	shortCode := "test123456"
 
-	_, _, err = storage.Save(ctx, originalURL, shortCode)
+	_, _, err = s.Save(ctx, originalURL, shortCode)
 	require.NoError(t, err)
 
-	resolved, err := storage.Resolve(ctx, shortCode)
+	resolved, err := s.Resolve(ctx, shortCode)
 	require.NoError(t, err)
 	require.Equal(t, originalURL, resolved)
 }
@@ -92,15 +90,20 @@ func TestResolveNotFound(t *testing.T) {
 	log, err := logger.New()
 	require.NoError(t, err)
 	ctx := logger.With(context.Background(), log)
-	storage := setupTestStorage(t, ctx)
-	defer storage.Close()
+	s := setupTestStorage(t, ctx)
 
-	_, err = storage.Resolve(ctx, "nonexistent")
-	require.Error(t, err)
+	_, err = s.Resolve(ctx, "notexists1")
+	require.ErrorIs(t, err, storage.ErrNotFound)
 }
 
 func setupTestStorage(t *testing.T, ctx context.Context) *PostgresStorage {
-	storage, err := NewPostgresStorage(ctx, testCfg)
+	t.Helper()
+	s, err := NewPostgresStorage(ctx, testCfg)
 	require.NoError(t, err)
-	return storage
+	t.Cleanup(func() { _ = s.Close() })
+
+	_, err = s.pool.Exec(ctx, "TRUNCATE urls CASCADE")
+	require.NoError(t, err)
+
+	return s
 }
