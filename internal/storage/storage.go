@@ -6,8 +6,8 @@ import (
 )
 
 var (
-	ErrNotFound      = errors.New("short URL not found")
-	ErrAlreadyExists = errors.New("short URL already exists")
+	ErrNotFound          = errors.New("short URL not found")
+	ErrShortCodeConflict = errors.New("short code already taken")
 )
 
 type Storage interface {
