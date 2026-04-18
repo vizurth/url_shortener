@@ -2,9 +2,12 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/vizurth/url_shortener/internal/storage"
 	"github.com/vizurth/url_shortener/pkg/logger"
 	psg "github.com/vizurth/url_shortener/pkg/postgres"
 )
@@ -15,19 +18,20 @@ type PostgresStorage struct {
 
 func NewPostgresStorage(ctx context.Context, cfg psg.Config) (*PostgresStorage, error) {
 	log := logger.From(ctx)
+
+	if err := psg.Migrate(ctx, cfg); err != nil {
+		return nil, fmt.Errorf("migrate: %w", err)
+	}
+
 	pool, err := psg.New(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("could not connect to postgres: %w", err)
 	}
-	err = psg.Migrate(ctx, cfg)
-	if err != nil {
-		return nil, fmt.Errorf("could not migrate postgres: %w", err)
-	}
 
-	err = pool.Ping(ctx)
-	if err != nil {
+	if err = pool.Ping(ctx); err != nil {
 		return nil, fmt.Errorf("could not ping postgres: %w", err)
 	}
+
 	log.Info(ctx, "successfully connected to postgres storage")
 	return &PostgresStorage{pool: pool}, nil
 }
@@ -58,7 +62,6 @@ func (s *PostgresStorage) Save(ctx context.Context, originalURL, shortCode strin
 	}
 
 	isNew := returnedCode == shortCode
-
 	return returnedCode, isNew, nil
 }
 
@@ -67,6 +70,9 @@ func (s *PostgresStorage) Resolve(ctx context.Context, shortCode string) (string
 	var originalURL string
 	err := s.pool.QueryRow(ctx, query, shortCode).Scan(&originalURL)
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", storage.ErrNotFound
+		}
 		return "", fmt.Errorf("could not query postgres: %w", err)
 	}
 	return originalURL, nil
