@@ -35,6 +35,7 @@ func (d *Duration) UnmarshalText(text []byte) error {
 	return nil
 }
 
+//nolint:govet // fieldalignment: config is read once at startup, ordering optimised for readability
 type Config struct {
 	Query    QueryConfig     `yaml:"query"`
 	Postgres postgres.Config `yaml:"postgres"`
@@ -42,11 +43,11 @@ type Config struct {
 }
 
 type QueryConfig struct {
-	HTTPAddr     string   `yaml:"http_addr" env:"QUERY_HTTP_ADDR" env-default:"0.0.0.0:8080"`
-	ReadTimeout  Duration `yaml:"read_timeout" env:"QUERY_READ_TIMEOUT" env-default:"5s"`
-	WriteTimeout Duration `yaml:"write_timeout" env:"QUERY_WRITE_TIMEOUT" env-default:"10s"`
-	IdleTimeout  Duration `yaml:"idle_timeout" env:"QUERY_IDLE_TIMEOUT" env-default:"120s"`
+	HTTPAddr     string   `yaml:"http_addr"     env:"QUERY_HTTP_ADDR"      env-default:"0.0.0.0:8080"`
 	ShortURLBase string   `yaml:"short_url_base" env:"QUERY_SHORT_URL_BASE" env-default:"http://localhost:8080"`
+	ReadTimeout  Duration `yaml:"read_timeout"  env:"QUERY_READ_TIMEOUT"   env-default:"5s"`
+	WriteTimeout Duration `yaml:"write_timeout" env:"QUERY_WRITE_TIMEOUT"  env-default:"10s"`
+	IdleTimeout  Duration `yaml:"idle_timeout"  env:"QUERY_IDLE_TIMEOUT"   env-default:"120s"`
 }
 
 type StorageConfig struct {
