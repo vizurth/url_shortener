@@ -33,7 +33,7 @@ func main() {
 	if err != nil {
 		log.Fatal(ctx, "failed to load config", zap.Error(err))
 	}
-	application, err := app.New(ctx, cfg)
+	application, err := app.New(ctx, *cfg)
 	if err != nil {
 		log.Fatal(ctx, "failed to create application", zap.Error(err))
 		return
