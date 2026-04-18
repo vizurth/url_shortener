@@ -101,12 +101,18 @@ func (a *App) Shutdown() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	a.log.Info(ctx, "shutting down HTTP server...")
 	if err := a.server.Shutdown(ctx); err != nil {
 		a.log.Error(ctx, "server shutdown error", zap.Error(err))
+	} else {
+		a.log.Info(ctx, "HTTP server stopped")
 	}
 
+	a.log.Info(ctx, "closing storage...")
 	if err := a.storage.Close(); err != nil {
 		a.log.Error(ctx, "storage close error", zap.Error(err))
+	} else {
+		a.log.Info(ctx, "storage closed")
 	}
 
 	a.log.Info(ctx, "shutdown complete")
