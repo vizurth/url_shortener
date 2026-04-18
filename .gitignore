@@ -1,0 +1,62 @@
+# Binaries
+bin/
+dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go build cache
+*.test
+*.out
+coverage.out
+coverage.html
+
+# Go workspace
+go.work
+go.work.sum
+
+# Vendor
+vendor/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker volumes / local data
+data/
+volumes/
+
+# Protobuf generated files (keep .proto, ignore generated)
+*.pb.go
+*.pb.gw.go
+
+# Kubernetes secrets
+*.kubeconfig
+kubeconfig
+
+# Logs
+*.log
+logs/
+
+# Profiling
+*.pprof
+cpu.prof
+mem.prof
+
+# Claude files
+claude/
+CLAUDE.md
