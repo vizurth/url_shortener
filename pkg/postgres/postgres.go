@@ -13,6 +13,7 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/vizurth/url_shortener/pkg/logger"
+	"go.uber.org/zap"
 )
 
 type Config struct {
@@ -60,7 +61,11 @@ func Migrate(ctx context.Context, cfg *Config) error {
 	var migrationPath string
 	for _, path := range migrationPaths {
 		if info, err := os.Stat(path); err == nil && info.IsDir() {
-			migrationPath, _ = filepath.Abs(path)
+			abs, err := filepath.Abs(path)
+			if err != nil {
+				return fmt.Errorf("resolve migration path: %w", err)
+			}
+			migrationPath = abs
 			break
 		}
 	}
@@ -74,7 +79,13 @@ func Migrate(ctx context.Context, cfg *Config) error {
 		return fmt.Errorf("failed to create migration instance: %w", err)
 	}
 	defer func() {
-		_, _ = m.Close()
+		srcErr, dbErr := m.Close()
+		if srcErr != nil {
+			log.Warn(ctx, "migration source close error", zap.Error(srcErr))
+		}
+		if dbErr != nil {
+			log.Warn(ctx, "migration db close error", zap.Error(dbErr))
+		}
 	}()
 
 	if err = m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
